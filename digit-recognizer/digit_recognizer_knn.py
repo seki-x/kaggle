@@ -22,7 +22,7 @@ def getDataArr():
     '''
     Load data files and return data in np array type
     '''
-    dataDir = 'dataSet//'
+    dataDir = 'data//'
     dataFile1 = 'train.csv'
     dataFile2 = 'test.csv'
     trainSet = loadData(dataDir+dataFile1)
