@@ -20,13 +20,24 @@ train = loadData('./data/train.csv')
 test = loadData('./data/test.csv')
 
 #%% Exploration
-sample = train['Sequence'][21] #id = 3
+sample = train['Sequence'][21]
 sep = sample.split(',')
-tmp = []
-for x in sep:
-    if x[0]=='-':
-        
+def popMinus(series):
+    tmp = []
+    ifMinus = []
+    for x in series:
+        if x[0] == '-':
+            ifMinus.append(1)
+            tmp.append(x[1:])
+        else:
+            ifMinus.append(0)
+            tmp.append(x)
+    return tmp,ifMinus
 
+sep, ifMinus = popMinus(sep)
 length = [len(x) for x in sep]
 pos = [str(x) for x in length]
-feature = pd.DataFrame({'length':length})
+idx = range(len(sep))
+
+
+feature = pd.DataFrame({'length':length,'#idx':idx,'ifMinus':ifMinus,})
