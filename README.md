@@ -1,1 +1,1 @@
-## Scripts and datasets for kaggle contests
+## Scripts for kaggle contests
