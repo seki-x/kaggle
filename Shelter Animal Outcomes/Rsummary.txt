@@ -1,0 +1,42 @@
+> summary(train)
+    AnimalID          Name                      DateTime              OutcomeType       OutcomeSubtype 
+ A006100:    1          : 7691   2015-08-11 00:00:00:   19   Adoption       :10769             :13612  
+ A047759:    1   Max    :  136   2015-11-17 00:00:00:   17   Died           :  197   Partner   : 7816  
+ A134067:    1   Bella  :  135   2015-07-02 00:00:00:   13   Euthanasia     : 1555   Foster    : 1800  
+ A141142:    1   Charlie:  107   2015-04-02 00:00:00:   11   Return_to_owner: 4786   SCRP      : 1599  
+ A163459:    1   Daisy  :  106   2014-08-31 09:00:00:   10   Transfer       : 9422   Suffering : 1002  
+ A178569:    1   Lucy   :   94   2014-08-26 09:00:00:    9                           Aggressive:  320  
+ (Other):26723   (Other):18460   (Other)            :26650                           (Other)   :  580  
+ AnimalType        SexuponOutcome  AgeuponOutcome                       Breed      
+ Cat:11134                :   1   1 year  : 3969   Domestic Shorthair Mix  : 8810  
+ Dog:15595   Intact Female:3511   2 years : 3742   Pit Bull Mix            : 1906  
+             Intact Male  :3525   2 months: 3397   Chihuahua Shorthair Mix : 1766  
+             Neutered Male:9779   3 years : 1823   Labrador Retriever Mix  : 1363  
+             Spayed Female:8820   1 month : 1281   Domestic Medium Hair Mix:  839  
+             Unknown      :1093   3 months: 1277   German Shepherd Mix     :  575  
+                                  (Other) :11240   (Other)                 :11470  
+               Color      
+ Black/White      : 2824  
+ Black            : 2292  
+ Brown Tabby      : 1635  
+ Brown Tabby/White:  940  
+ White            :  931  
+ Brown/White      :  884  
+ (Other)          :17223  
+> summary(test)
+       ID              Name                     DateTime     AnimalType       SexuponOutcome
+ Min.   :    1           :3225   2014-10-20 09:00:00:    8   Cat:4800   Intact Female:1493  
+ 1st Qu.: 2865   Bella   :  60   2015-07-02 00:00:00:    8   Dog:6656   Intact Male  :1460  
+ Median : 5728   Charlie :  56   2014-09-23 09:00:00:    7              Neutered Male:4235  
+ Mean   : 5728   Daisy   :  42   2015-08-11 00:00:00:    6              Spayed Female:3813  	
+ 3rd Qu.: 8592   Princess:  42   2015-09-05 09:00:00:    6              Unknown      : 455  
+ Max.   :11456   Luna    :  40   2016-01-25 00:00:00:    6                                  
+                 (Other) :7991   (Other)            :11415                                  
+  AgeuponOutcome                      Breed                    Color     
+ 1 year  :1768   Domestic Shorthair Mix  :3777   Black/White      :1219  
+ 2 years :1641   Pit Bull Mix            : 870   Black            : 973  
+ 2 months:1532   Chihuahua Shorthair Mix : 732   Brown Tabby      : 724  
+ 3 years : 766   Labrador Retriever Mix  : 586   White            : 402  
+ 3 months: 511   Domestic Medium Hair Mix: 378   Brown Tabby/White: 393  
+ 1 month : 501   German Shepherd Mix     : 255   Brown/White      : 373  
+ (Other) :4737   (Other)                 :4858   (Other)          :7372 
