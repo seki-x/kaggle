@@ -30,7 +30,7 @@ def popMinus(series):
             ifMinus.append(1)
             tmp.append(x[1:])
         else:
-            ifMinus.append(0)
+            ifMinus.append(-1)
             tmp.append(x)
     return tmp,ifMinus
 
@@ -39,5 +39,37 @@ length = [len(x) for x in sep]
 pos = [str(x) for x in length]
 idx = range(len(sep))
 
+feature1 = pd.DataFrame({'length':length,'#idx':idx,'ifMinus':ifMinus,})
 
-feature = pd.DataFrame({'length':length,'#idx':idx,'ifMinus':ifMinus,})
+train_num = 12
+x = np.array(range(train_num));x = x[:,None]
+y1 = feature1.values[:train_num,1]
+y2 = feature1.values[:train_num,2]
+yt1 = feature1.values[train_num:,1]
+yt2 = feature1.values[train_num:,2]
+xt = np.array(range(train_num,len(length)));xt = xt[:,None]
+from sklearn.linear_model  import LinearRegression,LogisticRegression
+reg1 = LogisticRegression()
+reg2 = LinearRegression()
+reg1 = reg1.fit(x,y1)
+reg2 = reg2.fit(x,y2)
+output1 = reg1.predict(xt)
+output2 = reg2.predict(xt).astype(int)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
