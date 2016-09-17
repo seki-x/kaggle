@@ -1,3 +1,5 @@
 *.csv
 *.Rhistory
+*.sqlite
 /data/
+/unused/
