@@ -203,20 +203,16 @@ output = forest.predict(test_data[0:,0:])
 
 #--------------------------- prediction end
 
-import csv as csv
-predictions_file = open('shelter0.csv', 'wb')
-open_file_object = csv.writer(predictions_file)
-open_file_object.writerow(['ID,Adoption,Died,Euthanasia,Return_to_owner,Transfer'])
 outputdict = {
-    1:'1,0,0,0,0',
-    2:'0,1,0,0,0',
-    3:'0,0,1,0,0',
-    4:'0,0,0,1,0',
-    5:'0,0,0,0,1',
+    1:[1,0,0,0,0],
+    2:[0,1,0,0,0],
+    3:[0,0,1,0,0],
+    4:[0,0,0,1,0],
+    5:[0,0,0,0,1],
 }
 out = [outputdict[x] for x in output]
-open_file_object.writerows(zip(idx, out))
-predictions_file.close()
+te = pd.DataFrame(out,index=idx,columns=Outcome)
+te.to_csv('shelter0.csv')
 print 'Done.'
 
 #--------------------------- writing csv end
