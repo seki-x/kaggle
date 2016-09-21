@@ -84,6 +84,15 @@ preds["residuals"] = preds["true"] - preds["preds"]
 preds.plot(x = "preds", y = "residuals",kind = "scatter")
 
 
+
+
+
+
+
+
+
+
+
 preds = np.expm1(model_lasso.predict(X_test))
 
 #solution = pd.DataFrame({"id":test.Id, "SalePrice":preds})
