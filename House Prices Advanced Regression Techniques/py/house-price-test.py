@@ -19,10 +19,11 @@ test = pd.read_csv('../input/test.csv')
 all_data = pd.concat((train.loc[:,'MSSubClass':'SaleCondition'],
                       test.loc[:,'MSSubClass':'SaleCondition']))
 
-matplotlib.rcParams['figure.figsize'] = (12.0, 6.0)
+
 prices = pd.DataFrame({"price":train["SalePrice"], 
                        "log(price + 1)":np.log1p(train["SalePrice"])})
-prices.hist()
+#matplotlib.rcParams['figure.figsize'] = (12.0, 6.0)
+#prices.hist()
 
 #%% feature eng
 
@@ -48,92 +49,80 @@ X_train = all_data[:train.shape[0]]
 X_test = all_data[train.shape[0]:]
 y = train.SalePrice
 
-#%% Grid search
-
-from sklearn.grid_search import GridSearchCV
-from sklearn.svm import SVR
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.cross_validation import KFold
+from sklearn.cross_validation import cross_val_score
 
-import datetime
-#C_range = [1e4]
-C_range_1 = np.logspace(0, 5, 11)
-gamma_range_1 = np.logspace(-8, 3, 19)
-#gamma_range =  [5.8e-7]
-def gridSearch(gamma_range, C_range):
-    param_grid = dict(gamma=gamma_range, C=C_range)
-    cv = KFold(len(y.values), n_folds=5, shuffle=True, random_state=42)
-    grid = GridSearchCV(SVR(kernel='rbf'), param_grid=param_grid, cv=cv, scoring='mean_squared_error')
-    
-    starttime = datetime.datetime.now()
-    grid.fit(X_train, y)
-    endtime_train = datetime.datetime.now()
-    timeCost_train = (endtime_train - starttime).seconds
-    print('\ntraining time costed: '+str(timeCost_train)+' seconds\n')
-    scores = [(-x[1])**0.5 for x in grid.grid_scores_]
-    scores = np.array(scores).reshape(len(C_range), len(gamma_range))
-    return grid, scores
 
-#%% Grid Vis
-def gridVis(grid, scores, C_range, gamma_range):
-    print('\nBest cv sccore: '+str(scores.min())+'\n')
-    plt.figure(figsize=(11, 9))
-    plt.subplots_adjust(left=.2, right=0.95, bottom=0.15, top=0.95)
-    plt.imshow(scores, interpolation='nearest', cmap=plt.cm.hot)
-    plt.xlabel('gamma')
-    plt.ylabel('C')
-    plt.colorbar()
-    plt.xticks(np.arange(len(gamma_range)), gamma_range, rotation=45)
-    plt.yticks(np.arange(len(C_range)), C_range)
-    plt.title('Validation')
-    plt.show()
+def rmse_cv(model, train_data=X_train):
+    rmse= np.sqrt(-cross_val_score(model, train_data, y, 
+                                   scoring="mean_squared_error", cv = 5))
+    return(rmse)
 
-grid_1, scores_1 = gridSearch(gamma_range_1, C_range_1)
-gridVis(grid_1, scores_1, C_range_1, gamma_range_1)
+alpha_rf = RandomForestRegressor(n_estimators=500, n_jobs=-1,random_state=42)
+alpha_rf = alpha_rf.fit(X_train, y)
+alpha_cv = rmse_cv(alpha_rf)
+print(alpha_cv)
+feat_importance = alpha_rf.feature_importances_
+feat_importance_pd = pd.Series(feat_importance, index = X_train.columns)
+#feat_importance_pd.plot()
+feat_importance_pd.sort_values(axis=0, ascending=False, inplace=True)
+#feat_importance_pd.plot()
 
-C_range_2 = np.linspace(C_range_1[7], 
-                        C_range_1[10], 
-                        9)
-gamma_range_2 = np.linspace(gamma_range_1[1],
-                            gamma_range_1[4],
-                            11)
-C_range_3 = np.linspace(C_range_2[0], 
-                        C_range_2[3], 
-                        8)
-gamma_range_3 = np.linspace(gamma_range_2[0],
-                            gamma_range_2[2],
-                            6)
-C_range_4 = np.linspace(C_range_3[4], 
-                        C_range_3[6], 
-                        6)
-gamma_range_4 = np.linspace(gamma_range_3[1],
-                            gamma_range_3[3],
-                            6)
-C_range_5 = np.linspace(C_range_4[4], 
-                        C_range_3[7], 
-                        6)
-gamma_range_5 = np.linspace(gamma_range_4[1],
-                            gamma_range_4[2],
-                            6)
-C_range_6 = np.linspace(C_range_5[2], 
-                        C_range_5[4], 
-                        7)
-gamma_range_6 = np.linspace(gamma_range_5[2],
-                            gamma_range_5[4],
-                            7)
-grid_6, scores_6 = gridSearch(gamma_range_6, C_range_6)
-gridVis(grid_6, scores_6, C_range_6, gamma_range_6)
+#def feat_sl(model):
+#    selected_ratios = [.02, .05, .08, .1, .2, .25, .3, .4, .5, .6, .7, .8, .9, 1]
+#    selected_cv = []
+#    for selected_ratio in selected_ratios:
+#        selected_num = int(selected_ratio * len(feat_importance_pd.index))
+#        feat_selected = feat_importance_pd.index[:selected_num]
+#        X_train_sl = X_train[feat_selected] 
+#        
+#        model_fit = model.fit(X_train_sl, y)
+#        print(rmse_cv(model_fit, X_train_sl))
+#        selected_cv.append(rmse_cv(model_fit, X_train_sl))
+#    
+#    selected_cv_mean = pd.Series([x.mean() for x in selected_cv], index=selected_ratios)
+#    plt.plot(selected_cv_mean)
+#    selected_cv_mean.sort_values(axis=0, ascending=True, inplace=True)
+#    best_ratio = selected_cv_mean.index[0]
+#    print(best_ratio)
+#    return selected_cv, best_ratio
 
-best_paras_idx = np.argwhere(scores_6==scores_6.min())
-best_paras = {
-            'C': C_range_6[best_paras_idx[0][0]],
-            'gamma': gamma_range_6[best_paras_idx[0][1]]
-            }
 
-fin_model = SVR(kernel='rbf',
-                C = best_paras['C'],
-                gamma = best_paras['gamma'])
-fin_model.fit(X_train, y)
-preds = np.expm1(fin_model.predict(X_test))
-solution = pd.DataFrame({"Id":test.Id, 
-                         "SalePrice":preds})
-solution.to_csv("svr.csv", index = False)
+from sklearn.linear_model import LassoCV
+model_lasso = LassoCV(alphas = [1, 0.1, 0.001, 0.0005]).fit(X_train, y)
+print(rmse_cv(model_lasso).mean())
+
+beta_lasso = LassoCV(alphas = [1, 0.1, 0.001, 0.0005])
+#selected_cv, best_ratio = feat_sl(beta_lasso)
+
+def feat_sl2(model):
+    selected_cv2 = []
+    selected_nums = range(1, int(len(feat_importance_pd.index)))
+    for selected_num in selected_nums:
+        feat_selected = feat_importance_pd.index[:selected_num]
+        X_train_sl = X_train[feat_selected] 
+        model_fit = model.fit(X_train_sl, y)
+        print(selected_num, rmse_cv(model_fit, X_train_sl))
+        selected_cv2.append(rmse_cv(model_fit, X_train_sl))
+    selected_cv_mean = pd.Series([x.mean() for x in selected_cv2], index=selected_nums)
+    plt.plot(selected_cv_mean)
+    selected_cv_mean.sort_values(axis=0, ascending=True, inplace=True)
+    best_num = selected_cv_mean.index[0]
+    print(best_num)
+    return selected_cv2, best_num
+        
+selected_cv2, best_num = feat_sl2(beta_lasso)        
+
+feat_selected = feat_importance_pd.index[:best_num]
+X_train_sl = X_train[feat_selected] 
+beta_lasso = LassoCV(alphas = [1, 0.1, 0.001, 0.0005])
+beta_lasso = beta_lasso.fit(X_train_sl, y)
+X_test_sl = X_test[feat_selected] 
+preds = np.expm1(beta_lasso.predict(X_test_sl))
+# rflb 0.12147
+#solution = pd.DataFrame({"id":test.Id, "SalePrice":preds})
+#solution.to_csv("lasso_sl168.csv", index = False)
+
+
+
