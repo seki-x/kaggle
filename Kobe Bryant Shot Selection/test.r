@@ -1,6 +1,0 @@
-data <- read.csv('./data/data.csv',head=T)
-# summary(data)
-# summary(data$action_type)
-# summary(data$season)
-# summary(data$matchup)
-# summary(data$opponent)

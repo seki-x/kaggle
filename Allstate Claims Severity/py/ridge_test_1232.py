@@ -13,8 +13,8 @@ import matplotlib.pyplot as plt
 
 #%% Load data 
 
-train = pd.read_csv(r'..\..\data\Allstate Claims Severity\train.csv')
-test = pd.read_csv(r'..\..\data\Allstate Claims Severity\test.csv')
+train = pd.read_csv(r'..\input\train.csv')
+test = pd.read_csv(r'..\input\test.csv')
 
 all_data = pd.concat((train.loc[:,'cat1':'cont14'],\
                      test.loc[:,'cat1':'cont14']))
