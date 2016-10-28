@@ -50,8 +50,8 @@ X_test = all_data[train.shape[0]:]
 y = train.SalePrice
 
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.cross_validation import KFold
-from sklearn.cross_validation import cross_val_score
+from sklearn.model_selection import KFold
+from sklearn.model_selection import cross_val_score
 
 
 def rmse_cv(model, train_data=X_train):

@@ -22,53 +22,61 @@ test_id = test.id
 
 #%% Preprocessing
 
-y_loss_1_log1p = pd.DataFrame({"loss":train["loss"], \
-                       "log(loss + 1)":np.log1p(train["loss"])})
-y_loss_1_log1p.hist()
+#y_loss_1_log1p = pd.DataFrame({"loss":train["loss"], \
+#                       "log(loss + 1)":np.log1p(train["loss"])})
+#y_loss_1_log1p.hist()
 
+#from scipy.stats import skew
+#numeric_feats = all_data.dtypes[all_data.dtypes != "object"].index
+#skewed_feats = train[numeric_feats].apply(lambda x: skew(x.dropna())) #compute skewness
+#skewed_feats = skewed_feats[skewed_feats > 0.75]
+#skewed_feats = skewed_feats.index
+#all_data[skewed_feats] = np.log1p(all_data[skewed_feats])
 
-from scipy.stats import skew
-numeric_feats = all_data.dtypes[all_data.dtypes != "object"].index
-skewed_feats = train[numeric_feats].apply(lambda x: skew(x.dropna())) #compute skewness
-skewed_feats = skewed_feats[skewed_feats > 0.75]
-skewed_feats = skewed_feats.index
-
-all_data[skewed_feats] = np.log1p(all_data[skewed_feats])
 all_data = pd.get_dummies(all_data)
 all_data = all_data.fillna(all_data.mean())
 
-#creating matrices for sklearn:
 X_train = all_data[:train.shape[0]]
 X_test = all_data[train.shape[0]:]
-y = np.log1p(train["loss"])
-
+#y = np.log1p(train["loss"])
+y = train["loss"]
 #%% Models
-from sklearn.linear_model import Ridge, RidgeCV, ElasticNet, LassoCV, LassoLarsCV
-from sklearn.cross_validation import cross_val_score
 
-def mae_cv(model):
-    mae= -cross_val_score(model, X_train, y, scoring="mean_absolute_error", cv = 5)
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import cross_val_score
+
+model_rf = RandomForestRegressor(
+#                                 n_estimators=50,\
+                                 criterion='mae',\
+                                 n_jobs=-1)
+
+sub_ratio = 0.08
+sub_num = np.floor(sub_ratio * np.size(X_train,0))
+sub_X_train = X_train.loc[:sub_num,:]
+sub_y = y.loc[:sub_num]
+
+#rf = model_rf.fit(sub_X_train, sub_y)
+
+def mae_cv(model, X = sub_X_train, y = sub_y):
+    mae = -cross_val_score(model, X, y, scoring="neg_mean_absolute_error", cv = 5)
     return(mae)
 
-model_ridge = Ridge()
+rf_mae_cv = mae_cv(model_rf)
 
-alphas = [0.05, 0.1, 0.3, 1, 3, 5, 10, 15, 30, 50, 75]#
-cv_ridge = [mae_cv(Ridge(alpha = alpha)).mean() 
-            for alpha in alphas]
-
-cv_ridge = pd.Series(cv_ridge, index = alphas)
-cv_ridge.plot(title = "Validation")
-plt.xlabel("alpha")
-plt.ylabel("mae")
-cv_ridge.min()
-
-#model_lasso = LassoCV(alphas = [1, 0.1, 0.001, 0.0005]).fit(X_train, y)
-#lasso_cv_mean = mae_cv(model_lasso).mean() # worse than the best of ridge
-
-alphas = pd.Series(alphas)
-alpha_best = cv_ridge.idxmin()
-ridge_best = Ridge(alpha = alpha_best).fit(X_train,y)
-ridge_pred = np.expm1(ridge_best.predict(X_test))
 
 #solution = pd.DataFrame({"id":test_id, "loss":pred})
 #solution.to_csv("sol.csv", index = False)
+
+
+
+
+
+
+
+
+
+
+
+
+
+

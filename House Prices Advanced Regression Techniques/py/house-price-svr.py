@@ -52,7 +52,7 @@ y = train.SalePrice
 
 from sklearn.grid_search import GridSearchCV
 from sklearn.svm import SVR
-from sklearn.cross_validation import KFold
+from sklearn.model_selection import KFold
 
 import datetime
 #C_range = [1e4]

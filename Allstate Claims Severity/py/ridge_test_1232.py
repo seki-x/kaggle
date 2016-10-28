@@ -44,7 +44,7 @@ y = np.log1p(train["loss"])
 
 #%% Models
 from sklearn.linear_model import Ridge, RidgeCV, ElasticNet, LassoCV, LassoLarsCV
-from sklearn.cross_validation import cross_val_score
+from sklearn.model_selection import cross_val_score
 
 def mae_cv(model):
     mae= -cross_val_score(model, X_train, y, scoring="mean_absolute_error", cv = 5)
@@ -62,13 +62,10 @@ plt.xlabel("alpha")
 plt.ylabel("mae")
 cv_ridge.min()
 
-#model_lasso = LassoCV(alphas = [1, 0.1, 0.001, 0.0005]).fit(X_train, y)
-#lasso_cv_mean = mae_cv(model_lasso).mean() # worse than the best of ridge
-
 alphas = pd.Series(alphas)
 alpha_best = cv_ridge.idxmin()
 ridge_best = Ridge(alpha = alpha_best).fit(X_train,y)
-ridge_pred = np.expm1(ridge_best.predict(X_test))
+pred = np.expm1(ridge_best.predict(X_test))
 
 #solution = pd.DataFrame({"id":test_id, "loss":pred})
-#solution.to_csv("sol.csv", index = False)
+#solution.to_csv("ridge_sol.csv", index = False)

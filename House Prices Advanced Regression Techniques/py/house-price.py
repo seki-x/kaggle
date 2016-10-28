@@ -44,7 +44,7 @@ X_test = all_data[train.shape[0]:]
 y = train.SalePrice
 
 from sklearn.linear_model import Ridge, RidgeCV, ElasticNet, LassoCV, LassoLarsCV
-from sklearn.cross_validation import cross_val_score
+from sklearn.model_selection import cross_val_score
 
 def rmse_cv(model):
     rmse= np.sqrt(-cross_val_score(model, X_train, y, scoring="mean_squared_error", cv = 5))
