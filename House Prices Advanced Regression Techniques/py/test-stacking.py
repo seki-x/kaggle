@@ -117,9 +117,9 @@ def test_ReDim(X_rd, X, y, _clf = RandomForestRegressor()):
     print('(PCA) clf'+' is over in %.2f sec...'%(total_time))
     print()
     return X_rd
-thrs = 1-1e-3
+thrs = 1-1e-4
 X_rd = test_ReDim(reduce_dim(X, thrs), X, y)
-test_rd = reduce_dim(test_data, thrs)
+test_rd = PCA(np.shape(X_rd)[1]).fit_transform(test_data)
 #, LassoCV(alphas = [1, 0.1, 0.001, 0.0005])
 
 #%% Coefficient Vis
@@ -150,6 +150,7 @@ coeff_imp_vis()
 predictions = dict()
 scores = dict()
 time_costs = dict()
+test_preds = dict()
 
 #CV_params = list(np.logspace(-5, 1))
 CV_params = [10, 1, 0.1, 0.001, 0.0005]
@@ -170,17 +171,17 @@ models = {
 #    "Linear Regression": LinearRegression(), #.17
 
 #    "LarsCV": LarsCV(), #.14
-    "BayesianRidge": BayesianRidge(), #.13
-    "LassoLarsCV": LassoLarsCV(max_iter=2000), #.13
-    "RidgeCV": RidgeCV(alphas=CV_params), #.13
-    "ElasticNetCV": ElasticNetCV(alphas=CV_params), #.12
-    "LassoCV": LassoCV(alphas=CV_params), #.12
+#    "BayesianRidge": BayesianRidge(), #.1277
+    "LassoLarsCV": LassoLarsCV(max_iter=2000), #.1258
+#    "RidgeCV": RidgeCV(alphas=CV_params), #.1273
+    "ElasticNetCV": ElasticNetCV(alphas=CV_params), #.1229
+    "LassoCV": LassoCV(alphas=CV_params), #.1231
 
 #    "AdaBoostRegressor": AdaBoostRegressor(), #.17
 #    "BaggingRegressor": BaggingRegressor(), #.15
 #    "ExtraTreesRegressor": ExtraTreesRegressor(), #.15
 #    "Random Forest": RandomForestRegressor(), #.15
-    "GradientBoostingRegressor": GradientBoostingRegressor(), #.13 
+    "GradientBoostingRegressor": GradientBoostingRegressor(), #.1262 
     }
 
 X_train, X_test, y_train, y_test = train_test_split(X_rd, y, test_size=.2, random_state=22)
@@ -201,6 +202,7 @@ for name, model in models.items():
     predict_time = time.time() - start_time
     time_costs[name] = [fit_time, predict_time]
     predictions[name] = pred
+    test_preds[name] = model.predict(test_rd)
     print(name+' predicted in %.4f sec No.%d in all...'%(predict_time,cnt))
     scores[name] = rmse_cv_mean(model, X, y)
     print(name+' has a score of %.4f No.%d in all...'%(scores[name],cnt))
@@ -208,19 +210,25 @@ for name, model in models.items():
 #%% Ensemble by simple averaging
 averaging = np.zeros((len(y_test),))
 averaging_weighted = np.zeros((len(y_test),))
+test_ave = np.zeros((np.shape(test_data.ix[:,0])))
+test_ave_w = np.zeros((np.shape(test_data.ix[:,0])))
 weight_sum = 0
+[(name, np.exp(.12-weight)) for name, weight in list(scores.items())]
+score_weights = dict()
 for name, pred in predictions.items():
-    weight = np.log(scores[name]/(1-scores[name]))
-    weight_sum += weight
+    weight = 1 / scores[name] / weight_sum
+    score_weights[name] = weight
     averaging_weighted += pred * weight
-    averaging += pred #
-averaging /= cnt
-averaging_weighted /= weight_sum
-del weight_sum, weight
+    averaging += pred / cnt
+    test_ave += test_preds[name] / cnt# predict-ave on testdata
+    test_ave_w += test_preds[name] * weight
+test_preds['Averaging'] = test_ave
+test_preds['Averaging_weighted'] = test_ave_w
+
 scores['Averaging']  = rmse(y_test, averaging)
 scores['Averaging_weighted']  = rmse(y_test, averaging_weighted)
-print('\Averaging'+' has a score of'+'\nAveraging: %.6f'%(scores['Averaging']))
-print('\Averaging_weighted'+' has a score of'+'\nAveraging_weighted: %.6f'%
+print('Averaging'+' has a score of'+'\nAveraging: %.6f'%(scores['Averaging']))
+print('Averaging_weighted'+' has a score of'+'\nAveraging_weighted: %.6f'%
       (scores['Averaging_weighted']))
 
 #%% Ensemble by stacking
@@ -228,18 +236,16 @@ from sklearn.model_selection import StratifiedKFold
 skf = StratifiedKFold(n_splits=3, random_state=41)
 
 stack_models = {
-    "BayesianRidge": BayesianRidge(), #.13
-    "LassoLarsCV": LassoLarsCV(max_iter=2000), #.13
-    "RidgeCV": RidgeCV(alphas=CV_params), #.13
-    "ElasticNetCV": ElasticNetCV(alphas=CV_params), #.12
-    "LassoCV": LassoCV(alphas=CV_params), #.12
-    "GradientBoostingRegressor": GradientBoostingRegressor(), #.13 
+    "LassoLarsCV": LassoLarsCV(max_iter=2000), #.1258
+    "ElasticNetCV": ElasticNetCV(alphas=CV_params), #.1229
+    "LassoCV": LassoCV(alphas=CV_params), #.1231
+    "GradientBoostingRegressor": GradientBoostingRegressor(), #.1262 
     }
 stack_trainSet = []
 stack_scores = dict()
 stack_preds = dict()
 
-X_train, X_test, y_train, y_test = train_test_split(X_rd, y, test_size=.1, random_state=22)
+#X_train, X_test, y_train, y_test = train_test_split(X_rd, y, test_size=.1, random_state=22)
 # no pca
 #X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.2, random_state=42)
 
@@ -259,8 +265,9 @@ for train_index, test_index in skf.split(X_rd, y):
         fit_time = time.time() - start_time
         print(name+' is trained in %.4f sec No.%d in all...'%(fit_time,cnt))
         print('Prediction of '+name+' No.%d CLF in all...'%(cnt))
+        weight = score_weights[name] #
         start_time = time.time()
-        pred = model.predict(X_test)
+        pred = model.predict(X_test) * weight
         predict_time = time.time() - start_time
         time_costs[name] = [fit_time, predict_time]
         stack_preds[name] = pred
@@ -282,6 +289,7 @@ stack_train_ = stack_train[:,1:]
 plt.hist(stack_train_)
 stack_train_ = StandardScaler().fit_transform(stack_train[:,1:])
 plt.hist(stack_train_)
+plt.close()
 
 X_train, X_test, y_train, y_test = train_test_split(
         stack_train_, stack_train[:,0], test_size=.1, random_state=22)
@@ -289,19 +297,17 @@ X_train, X_test, y_train, y_test = train_test_split(
 print(stack_scores)
 
 meta_models = {
-    "BayesianRidge": BayesianRidge(), #.13
-    "LassoLarsCV": LassoLarsCV(max_iter=2000), #.13
-    "RidgeCV": RidgeCV(alphas=CV_params), #.13
-    "ElasticNetCV": ElasticNetCV(alphas=CV_params), #.12
-    "LassoCV": LassoCV(alphas=CV_params), #.12
-    "GradientBoostingRegressor": GradientBoostingRegressor(), #.13 
+    "LassoLarsCV": LassoLarsCV(max_iter=2000), #.1258
+    "ElasticNetCV": ElasticNetCV(alphas=CV_params), #.1229
+    "LassoCV": LassoCV(alphas=CV_params), #.1231
+    "GradientBoostingRegressor": GradientBoostingRegressor(), #.1262 
     }
 meta_scores = dict()
 cnt = 0
 for name, model in meta_models.items():
     cnt += 1
     model.fit(X_train, y_train)
-    meta_scores[name] = rmse_cv_mean(metaClf, X_test, y_test)
+    meta_scores[name] = rmse_cv_mean(model, X_test, y_test)
     print(name+' has a score of %.4f No.%d in all...'%(meta_scores[name],cnt))
 
 print('single_model scores')
@@ -310,4 +316,23 @@ print('stack_meta scores')
 print(sorted(meta_scores.values())[0])
 
 scores['Stacking']  = sorted(meta_scores.values())[0]
+
+#%% stacking test
+stack_testSet = []
+test_y = np.zeros((np.shape(test_rd)[0],))
+foldI = 0
+weight_sum = 0
+cnt = 0
+for name, model in stack_models.items():
+    cnt += 1
+    weight = score_weights[name]
+    pred = model.predict(test_rd) * weight
+    stack_testSet.append(pred)
+    
+stack_test = stack_testSet[0]
+for test in stack_testSet[1:]:
+    stack_test = np.vstack((stack_test, test))
+stack_test = stack_test.T
+meta_name = min(meta_scores.items(), key=lambda x: x[1])[0]
+test_preds['Stacking'] = meta_models[meta_name].predict(stack_test)
 
