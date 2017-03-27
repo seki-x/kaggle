@@ -4,11 +4,10 @@ Created on Wed Sep 14 13:49:22 2016
 
 @author: john
 """
-
+#import matplotlib
 import pandas as pd
 import numpy as np
 import seaborn as sns
-import matplotlib
 import matplotlib.pyplot as plt
 from scipy.stats import skew
 
