@@ -68,50 +68,29 @@ feat_importance_pd = pd.Series(feat_importance, index = X_train.columns)
 feat_importance_pd.sort_values(axis=0, ascending=False, inplace=True)
 #feat_importance_pd.plot()
 
-#def feat_sl(model):
-#    selected_ratios = [.02, .05, .08, .1, .2, .25, .3, .4, .5, .6, .7, .8, .9, 1]
-#    selected_cv = []
-#    for selected_ratio in selected_ratios:
-#        selected_num = int(selected_ratio * len(feat_importance_pd.index))
-#        feat_selected = feat_importance_pd.index[:selected_num]
-#        X_train_sl = X_train[feat_selected] 
-#        
-#        model_fit = model.fit(X_train_sl, y)
-#        print(rmse_cv(model_fit, X_train_sl))
-#        selected_cv.append(rmse_cv(model_fit, X_train_sl))
-#    
-#    selected_cv_mean = pd.Series([x.mean() for x in selected_cv], index=selected_ratios)
-#    plt.plot(selected_cv_mean)
-#    selected_cv_mean.sort_values(axis=0, ascending=True, inplace=True)
-#    best_ratio = selected_cv_mean.index[0]
-#    print(best_ratio)
-#    return selected_cv, best_ratio
-
-
 from sklearn.linear_model import LassoCV
 model_lasso = LassoCV(alphas = [1, 0.1, 0.001, 0.0005]).fit(X_train, y)
 print(rmse_cv(model_lasso).mean())
 
 beta_lasso = LassoCV(alphas = [1, 0.1, 0.001, 0.0005])
-#selected_cv, best_ratio = feat_sl(beta_lasso)
 
 def feat_sl2(model):
-    selected_cv2 = []
+    selected_cv = []
     selected_nums = range(1, int(len(feat_importance_pd.index)))
     for selected_num in selected_nums:
         feat_selected = feat_importance_pd.index[:selected_num]
         X_train_sl = X_train[feat_selected] 
         model_fit = model.fit(X_train_sl, y)
         print(selected_num, rmse_cv(model_fit, X_train_sl))
-        selected_cv2.append(rmse_cv(model_fit, X_train_sl))
-    selected_cv_mean = pd.Series([x.mean() for x in selected_cv2], index=selected_nums)
+        selected_cv.append(rmse_cv(model_fit, X_train_sl))
+    selected_cv_mean = pd.Series([x.mean() for x in selected_cv], index=selected_nums)
     plt.plot(selected_cv_mean)
     selected_cv_mean.sort_values(axis=0, ascending=True, inplace=True)
     best_num = selected_cv_mean.index[0]
     print(best_num)
-    return selected_cv2, best_num
+    return selected_cv, best_num
         
-selected_cv2, best_num = feat_sl2(beta_lasso)        
+selected_cv, best_num = feat_sl2(beta_lasso)        
 
 feat_selected = feat_importance_pd.index[:best_num]
 X_train_sl = X_train[feat_selected] 

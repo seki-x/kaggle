@@ -15,6 +15,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from scipy.stats import skew
 import time
+import copy
 
 #%% load data
 train = pd.read_csv('../input/train.csv')
@@ -117,7 +118,7 @@ def test_ReDim(X_rd, X, y, _clf = RandomForestRegressor()):
     print('(PCA) clf'+' is over in %.2f sec...'%(total_time))
     print()
     return X_rd
-thrs = 1-1e-4
+thrs = 1-1e-6
 X_rd = test_ReDim(reduce_dim(X, thrs), X, y)
 test_rd = PCA(np.shape(X_rd)[1]).fit_transform(test_data)
 #, LassoCV(alphas = [1, 0.1, 0.001, 0.0005])
@@ -145,8 +146,12 @@ def coeff_imp_vis(X=X):
     plt.show()
 coeff_imp_vis()
 
-# using pca
-#%% models
+X = X.values
+test_X = test_data.values
+# using no pca
+#%% single model
+train_preds = dict()
+
 predictions = dict()
 scores = dict()
 time_costs = dict()
@@ -184,9 +189,9 @@ models = {
     "GradientBoostingRegressor": GradientBoostingRegressor(), #.1262 
     }
 
-X_train, X_test, y_train, y_test = train_test_split(X_rd, y, test_size=.2, random_state=22)
+#X_train, X_test, y_train, y_test = train_test_split(X_rd, y, test_size=.2, random_state=22)
 # no pca
-#X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.2, random_state=42)
 
 cnt = 0
 for name, model in models.items():
@@ -202,7 +207,9 @@ for name, model in models.items():
     predict_time = time.time() - start_time
     time_costs[name] = [fit_time, predict_time]
     predictions[name] = pred
-    test_preds[name] = model.predict(test_rd)
+    
+    train_preds[name] = model.predict(X)
+    test_preds[name] = model.predict(test_X)
     print(name+' predicted in %.4f sec No.%d in all...'%(predict_time,cnt))
     scores[name] = rmse_cv_mean(model, X, y)
     print(name+' has a score of %.4f No.%d in all...'%(scores[name],cnt))
@@ -210,20 +217,29 @@ for name, model in models.items():
 #%% Ensemble by simple averaging
 averaging = np.zeros((len(y_test),))
 averaging_weighted = np.zeros((len(y_test),))
-test_ave = np.zeros((np.shape(test_data.ix[:,0])))
-test_ave_w = np.zeros((np.shape(test_data.ix[:,0])))
-weight_sum = 0
-[(name, np.exp(.12-weight)) for name, weight in list(scores.items())]
+test_ave = np.zeros((np.shape(test_X[:,0])))
+test_ave_w = np.zeros((np.shape(test_X[:,0])))
+train_ave = np.zeros((np.shape(X[:,0])))
+train_ave_w = np.zeros((np.shape(X[:,0])))
 score_weights = dict()
+scores_srt_li = sorted(scores.items(), key=lambda x: x[1])
+scores_name_srt_li = [i[0] for i in scores_srt_li]
+q = 1/1e1
+weight_sum = (1-q**len(scores_name_srt_li)) / (1-q)
+for name, weight in scores.items():
+    score_weights[name] = q ** scores_name_srt_li.index(name) / weight_sum
 for name, pred in predictions.items():
-    weight = 1 / scores[name] / weight_sum
-    score_weights[name] = weight
+    weight = score_weights[name]
     averaging_weighted += pred * weight
-    averaging += pred / cnt
-    test_ave += test_preds[name] / cnt# predict-ave on testdata
+    averaging += pred * 1/cnt
+    test_ave += test_preds[name] * 1/cnt
     test_ave_w += test_preds[name] * weight
+    train_ave += train_preds[name] * 1/cnt
+    train_ave_w += train_preds[name] * weight
 test_preds['Averaging'] = test_ave
 test_preds['Averaging_weighted'] = test_ave_w
+train_preds['Averaging'] = train_ave
+train_preds['Averaging_weighted'] = train_ave_w
 
 scores['Averaging']  = rmse(y_test, averaging)
 scores['Averaging_weighted']  = rmse(y_test, averaging_weighted)
@@ -231,6 +247,7 @@ print('Averaging'+' has a score of'+'\nAveraging: %.6f'%(scores['Averaging']))
 print('Averaging_weighted'+' has a score of'+'\nAveraging_weighted: %.6f'%
       (scores['Averaging_weighted']))
 
+#del scores['Averaging'], scores['Averaging_weighted']
 #%% Ensemble by stacking
 from sklearn.model_selection import StratifiedKFold
 skf = StratifiedKFold(n_splits=3, random_state=41)
@@ -250,9 +267,9 @@ stack_preds = dict()
 #X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.2, random_state=42)
 
 foldI = 0
-for train_index, test_index in skf.split(X_rd, y):
-    X_train, y_train = X_rd[train_index], y[train_index]
-    X_test, y_test = X_rd[test_index], y[test_index]
+for train_index, test_index in skf.split(X, y):
+    X_train, y_train = X[train_index], y[train_index]
+    X_test, y_test = X[test_index], y[test_index]
     stack_trainSet += [np.reshape(y_test,(len(y_test),1))]
     pred_set = []
     print('\n---No.%s fold of %s in all---' % (foldI, 3))
@@ -286,10 +303,10 @@ for train in stack_trainSet[1:]:
 from sklearn.preprocessing import Normalizer, MinMaxScaler, StandardScaler
 
 stack_train_ = stack_train[:,1:]
-plt.hist(stack_train_)
+#plt.hist(stack_train_)
 stack_train_ = StandardScaler().fit_transform(stack_train[:,1:])
-plt.hist(stack_train_)
-plt.close()
+#plt.hist(stack_train_)
+#plt.show()
 
 X_train, X_test, y_train, y_test = train_test_split(
         stack_train_, stack_train[:,0], test_size=.1, random_state=22)
@@ -319,20 +336,52 @@ scores['Stacking']  = sorted(meta_scores.values())[0]
 
 #%% stacking test
 stack_testSet = []
-test_y = np.zeros((np.shape(test_rd)[0],))
+stack_trainSet = [] # to visualize residuals
+test_y = np.zeros((np.shape(test_X)[0],))
 foldI = 0
-weight_sum = 0
 cnt = 0
 for name, model in stack_models.items():
     cnt += 1
     weight = score_weights[name]
-    pred = model.predict(test_rd) * weight
+    pred = model.predict(test_X) * weight
+    train_pred = model.predict(X) * weight
     stack_testSet.append(pred)
-    
+    stack_trainSet.append(train_pred)
 stack_test = stack_testSet[0]
+stack_train = stack_trainSet[0]
 for test in stack_testSet[1:]:
     stack_test = np.vstack((stack_test, test))
+for train in stack_trainSet[1:]:
+    stack_train = np.vstack((stack_train, train))
 stack_test = stack_test.T
+stack_test_ = StandardScaler().fit_transform(stack_test)
+stack_train = stack_train.T
+stack_train_ = StandardScaler().fit_transform(stack_train)
 meta_name = min(meta_scores.items(), key=lambda x: x[1])[0]
-test_preds['Stacking'] = meta_models[meta_name].predict(stack_test)
-
+test_preds['Stacking'] = meta_models[meta_name].predict(stack_test_)
+train_preds['Stacking'] = meta_models[meta_name].predict(stack_train_)
+#%% residuals
+preds_df = pd.DataFrame(train_preds)
+residuals = pd.DataFrame()
+#train_rmse = pd.DataFrame()
+cnt = 0
+plt.figure(figsize=(15,15))
+for name, pred in train_preds.items():
+    cnt += 1
+    resi = pd.DataFrame({
+            'true': y,
+            name: pred,
+            'res': y - pred,
+            'rmse': np.mean(rmse(y, pred)),
+            })
+    residuals[name] = resi['res']
+#    train_rmse[name] = resi['rmse']
+    plt.subplot(330+cnt)
+    plt.scatter(pred, y - pred)
+    plt.title(name)
+plt.show()
+#%% make submissions
+test = pd.read_csv('../input/test.csv')
+for name, pred in test_preds.items():
+    solution = pd.DataFrame({"id":test.Id, "SalePrice":np.expm1(pred)})
+    solution.to_csv(r'./submissions/' + name + ".csv", index = False)
