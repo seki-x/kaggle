@@ -26,7 +26,7 @@ matplotlib.rcParams['figure.figsize'] = (6, 4)
 prices.hist()
 plt.show()
 
-#%% feature eng
+#%% preprocess
 #log transform the target:
 train["SalePrice"] = np.log1p(train["SalePrice"])
 #log transform skewed numeric features:
@@ -46,6 +46,7 @@ trainX_raw = all_data[:train.shape[0]]
 trainy_raw = train.SalePrice
 del train
 
+#%% Evaluation
 from sklearn.model_selection import cross_val_score,train_test_split
 from sklearn.metrics import make_scorer, mean_squared_error
 
@@ -56,14 +57,18 @@ def rmseCvMean(model, X, y, cv=5, random_state=41):
     from sklearn.model_selection import StratifiedKFold
     skf = StratifiedKFold(n_splits=cv, random_state=random_state)
     scr = 0
+    model_li = []
+    scr_li = []
     for train_index, test_index in skf.split(X, y):
         X_train, y_train = X[train_index], y[train_index]
         X_test, y_test = X[test_index], y[test_index]
         model.fit(X_train, y_train)
         pred = model.predict(X_test)
+        scr_li.append(rmse(y_test, pred))
         scr += rmse(y_test, pred)
+        model_li.append(model)
         print('\t', rmse(y_test, pred))
-    return scr/cv
+    return scr/cv, model_li[scr_li.index(min(scr_li))]
 
 def rmse_cv(model, X, y):
     rmse = np.sqrt(-cross_val_score(model, X, y, scoring="neg_mean_squared_error", cv = 5))
@@ -73,98 +78,16 @@ def rmse_cv_mean(model, X, y):
 #%% import models
 from sklearn.linear_model import *
 from sklearn.ensemble import *
-from sklearn.neural_network import MLPRegressor
-from sklearn.svm import LinearSVR,SVR
-from sklearn.neighbors import KNeighborsRegressor,RadiusNeighborsRegressor
-from sklearn.tree import DecisionTreeRegressor
-from sklearn.gaussian_process import GaussianProcessRegressor
-
-from sklearn.decomposition import PCA
-from sklearn.model_selection import GridSearchCV
-#%% Coefficient Vis
-def coeff_imp_vis(X=X):
-    model_lasso = LassoCV(alphas = [1, 0.1, 0.001, 0.0005])
-    model_lasso.fit(X, y)
-    rmse_cv_mean(model_lasso, X, y).mean()
-    coef = pd.Series(model_lasso.coef_,index=X.columns)
-    imp_coef = pd.concat([coef.sort_values().head(10),
-                         coef.sort_values().tail(10)])
-    matplotlib.rcParams['figure.figsize'] = (5, 5)
-    imp_coef.plot(kind = "barh")
-    plt.title("Coefficients in the Lasso Model")
-    plt.show()
-    
-    model_rf = RandomForestRegressor().fit(X, y)
-    coef_rf = pd.Series(model_rf.feature_importances_,index=X.columns)
-    imp_coef = pd.concat([coef_rf.sort_values().head(10),
-                         coef_rf.sort_values().tail(10)])
-    matplotlib.rcParams['figure.figsize'] = (5, 5)
-    imp_coef.plot(kind = "barh")
-    plt.title("Coefficients in the RF Model")
-    plt.show()
-
-    return coef, coef_rf
-coef_lasso, coef_rf = coeff_imp_vis()
-imp_lasso_srt = coef_lasso.sort_values(ascending=False)
-imp_rf_srt = coef_rf.sort_values(ascending=False)
-
-#%% feature eng
-CV_params = [10, 1, 0.1, 0.001, 0.0005]
-def select_feat(X, y, Xtest, imp_srt, model=ElasticNetCV(alphas=CV_params)):
-    scr = []
-    imp_feat = list(imp_srt.index[:])
-    for i in range(len(imp_feat)):
-        top_Ifeat = imp_feat[:i+1]
-        scr.append(rmse_cv_mean(model, X[top_Ifeat], y))
-        if i % 15 == 0:
-            print('Top %s featrues: CV %.6f' % (i, scr[-1]))
-    plt.plot(scr)
-    chosen_feat = imp_feat[:scr.index(min(scr))+1]
-    return X[chosen_feat], Xtest[chosen_feat]
-
-#X_slct_lasso, test_slct_lasso = select_feat(X, y, test_data, imp_lasso_srt, model=ElasticNetCV(alphas=CV_params))
-#X_slct_rf, test_slct_rf = select_feat(X, y, test_data, imp_rf_srt, model=ElasticNetCV(alphas=CV_params))
+#from sklearn.neural_network import MLPRegressor
+#from sklearn.svm import LinearSVR,SVR
+#from sklearn.neighbors import KNeighborsRegressor,RadiusNeighborsRegressor
+#from sklearn.tree import DecisionTreeRegressor
+#from sklearn.gaussian_process import GaussianProcessRegressor
 #
-#rmse_cv_mean(ElasticNetCV(alphas=CV_params), X_slct_lasso, y)
-#rmse_cv_mean(ElasticNetCV(alphas=CV_params), X_slct_rf, y)
-#
-#X = X_slct_rf
-#test_data = test_slct_rf
-#%% feature eng
-imp_feat1 = list(imp_lasso_srt.index[:3])
-imp_feat2 = list(imp_rf_srt.index[:3])
-imp_feat = list(set(imp_feat1).union(set(imp_feat2)).
-                   intersection(set(numeric_feats)))
-def quad_feature(arr):
-    columns_new = [colname + '_quad' for colname in arr.columns]
-    arr_new = pd.DataFrame(arr ** 2)
-    arr_new.columns = columns_new
-    return arr_new
+#from sklearn.decomposition import PCA
+#from sklearn.model_selection import GridSearchCV
 
-#quad_feat = quad_feature(X[imp_feat])
-#X_quad = pd.concat((X, quad_feat), axis=1)
-#CV_params = [10, 1, 0.1, 0.001, 0.0005]
-#model_ela = ElasticNetCV(alphas=CV_params) #LassoCV(alphas=CV_params)
-#rmse_no_quad = rmse_cv_mean(model_ela, X, y)
-#rmse_quad = rmse_cv_mean(model_ela, X_quad, y)
-#_,_ = coeff_imp_vis(X_quad)
-#
-#quad_feat = quad_feature(test_data[imp_feat])
-#test_data_quad = pd.concat((test_data, quad_feat), axis=1)
-
-#%% outliers
-plt.hist(y.sort_values()[:], bins=50)
-k_out = 10
-plt.hist(y.sort_values()[k_out:len(y)-k_out], bins=50)
-
-non_outliers_idx = y.sort_values()[k_out:len(y)-k_out].index.sort_values()
-#X = X[non_outliers_idx,:]
-#y = y[non_outliers_idx]
 #%% single model
-#X = X_quad.values
-#test_X = test_data_quad.values
-#X = X_slct_rf.values
-#test_X = test_slct_rf.values
 X = X.values
 test_X = test_data.values
 
@@ -198,42 +121,33 @@ for name, model in models.items():
     print(name+' has a score of %.4f No.%d in all...'%(scores[name],cnt))
 del start_time, fit_time, predict_time, pred
 del cnt, name, model
-#%% residuals
-matplotlib.rcParams['figure.figsize'] = (6.0, 6.0)
-for name, model in models.items():
-    residuals = pd.DataFrame({name:train_preds[name], "true":y})
-    residuals["residuals"] = residuals["true"] - residuals[name]
-    residuals.plot(x = name, y = "residuals",kind = "scatter")
 
-#%% Error-adaptive
+#%% Rolling
 
 class Boosting(object):
-    def __init__(self,_base_model,_base_params,_mentor_model,_mentor_params,_maxIter=10,_sigma=3e-3):
+    def __init__(self,_base_model,_base_params,_mentor_model,_mentor_params,_maxIter=40):
         self.mentor_model = _mentor_model(**_mentor_params)
         self.model_li = [_base_model(**_base_params) for i in range(_maxIter)]
-        self.model_wei = [1/_maxIter for i in range(_maxIter)]
+#        self.model_wei = [1/_maxIter for i in range(_maxIter)]
         self.model_maxIter = _maxIter
         self.pred_li = None
         self.scores = []
-        self.sigma = _sigma
     def fit(self, X, y):
         predZ = np.zeros(np.shape(X[:, 0]))
         Xz = np.concatenate((X, np.reshape(predZ,(np.size(predZ),1))),axis=1)
         predZ =  self.mentor_model.fit(Xz, y).predict(Xz)
         Xz = np.concatenate((X, np.reshape(predZ,(np.size(predZ),1))),axis=1)
-#        plt.plot(sorted(predZ))
         scr = []
         for model in self.model_li:
             predZ = model.fit(Xz, y).predict(Xz)
-            err = np.random.normal(scale=self.sigma,size=np.shape(predZ))
-            predZ += err
             Xz = np.concatenate((X, np.reshape(predZ,(np.size(predZ),1))),axis=1)
             scr.append(rmse(y, predZ))
+#            plt.plot(sorted(predZ))
             print(scr[-1])
         self.scores = scr
-#        plt.plot(scr)
-#        plt.show()
-#            plt.plot(sorted(predZ))
+        plt.plot(scr)
+#        return self
+
     def predict(self, X):
         predZ = np.zeros(np.shape(X[:, 0]))
         Xz = np.concatenate((X, np.reshape(predZ,(np.size(predZ),1))),axis=1)
@@ -242,39 +156,39 @@ class Boosting(object):
 #        plt.plot(sorted(predZ))
         for model in self.model_li:
             predZ = model.predict(Xz)
-            err = np.random.normal(scale=self.sigma,size=np.shape(predZ))
-            predZ += err
             Xz = np.concatenate((X, np.reshape(predZ,(np.size(predZ),1))),axis=1)
 #            plt.plot(sorted(predZ))
         return predZ
+CV_params = np.logspace(-5, 1, 20)
+model_ela = ElasticNetCV(alphas=CV_params)
+model_ela.fit(X, y)
+CV_params = np.linspace(model_ela.alpha_ * 0.5, model_ela.alpha_ * 1.5, 5)
+model_ela = ElasticNetCV(alphas=CV_params)
+rmse_cv_mean(model_ela, X, y)
 
 params = {'alphas': CV_params,
-#          'l1_ratio': [0.5, 0.6, 0.7, 0.8, 0.9, 1],
-#          'max_iter': 1e4,
           'cv': 5,}
 bst = Boosting(ElasticNetCV,params,
                ElasticNetCV,params)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.5, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.4, random_state=42)
 bst.fit(X_train, y_train)
-print(rmse(y_test, bst.predict(X_test)))
 
+#%% cv
 print(rmse(y, bst.predict(X)))
 print(rmse(y, ElasticNetCV(alphas=CV_params).fit(X_train, y_train).predict(X)))
 
-#print(rmseCvMean(bst, X, y))
-#print(rmseCvMean(ElasticNetCV(alphas=CV_params), X, y))
+bst = Boosting(ElasticNetCV,params,
+               ElasticNetCV,params, 10)
 
-#model_ela = ElasticNetCV(alphas=CV_params).fit(X_train, y_train)
-#model_lasso = ElasticNetCV(alphas=CV_params).fit(X_train, y_train)
+bst_cv, bst_best = rmseCvMean(bst, X, y, 5)
+print(bst_cv)
+ela_cv, ela_best = rmseCvMean(ElasticNetCV(alphas=CV_params), X, y, 5)
+print(ela_cv)
+
 #%% submission
-name = 'error_ada_err'
-
-pred = bst.predict(test_X)
+name = 'rolling40_ela'
+#bst.fit(X, y)
+pred = bst_best.predict(test_X)
 solution = pd.DataFrame({"id":test.Id, "SalePrice":np.expm1(pred)})
 solution.to_csv(r'./submissions/' + name + ".csv", index = False)
-
-
-
-
-
 
